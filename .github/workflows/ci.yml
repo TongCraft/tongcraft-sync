@@ -66,4 +66,4 @@ jobs:
         run: |
           container=$(docker run --detach --publish 127.0.0.1:18787:8787 --env TONGCRAFT_ADMIN_UUID=00000000000040008000000000000001 tongcraft-sync-ci)
           trap 'docker logs "$container"; docker rm --force "$container" >/dev/null' EXIT
-          curl --fail --retry 10 --retry-connrefused --retry-delay 1 http://127.0.0.1:18787/health
+          curl --fail --retry 15 --retry-all-errors --retry-delay 1 --retry-max-time 30 --max-time 3 http://127.0.0.1:18787/health
