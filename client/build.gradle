@@ -1,5 +1,5 @@
 plugins { id 'net.fabricmc.fabric-loom' version '1.17.12' }
-version = '0.1.0'
+version = providers.gradleProperty('modVersion').getOrElse('0.1.0')
 group = 'org.tongcraft'
 base { archivesName = 'tongcraft-sync-26.2' }
 repositories {

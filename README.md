@@ -32,7 +32,7 @@ Minecraft Java **26.2** 的游戏内投影协作模组与独立同步服务。�
 
 将 `client/build/libs/tongcraft-sync-26.2-0.1.0.jar` 和依赖放入客户端的 `mods` 目录。**不要放入游戏服务器的 mods 目录。**
 
-也可从仓库 [Actions](https://github.com/TongCraft/tongcraft-sync/actions/workflows/ci.yml) 中成功的 CI 运行下载 `tongcraft-sync-client` 构建产物，解压后使用不带 `-sources` 后缀的 JAR；依赖仍需另外安装。
+推荐从 [Releases](https://github.com/TongCraft/tongcraft-sync/releases) 下载不带 `-sources` 后缀的 JAR；依赖仍需另外安装。每个 Release 附有源码 JAR 和 `SHA256SUMS.txt`。也可从仓库 [Actions](https://github.com/TongCraft/tongcraft-sync/actions/workflows/ci.yml) 中成功的 CI 运行下载 `tongcraft-sync-client` 构建产物。
 
 1. 按 **H** 打开投影管理（可以在 Minecraft 按键设置中修改），或从 Mod Menu 打开。
 2. 打开“连接设置”，填写同步服务地址，例如 `https://sync.example.com`。游戏服务器地址默认是 `mc.tongcraft.cn`，如果使用其他连接地址，可以在此修改。游戏地址用于选择共享空间，不是身份或在线状态的证明。
@@ -120,7 +120,11 @@ Windows 构建脚本会检查 `JAVA_HOME`；如果它指向旧 JDK，会尝试�
 
 ## GitHub CI
 
-推送 `main`、提交 Pull Request 或手动触发 Actions 时，自动构建客户端 JAR、运行服务端测试、检查运行依赖漏洞，并构建与启动独立服务容器做健康检查。Actions 固定到完整提交 SHA，工作流仅需要读取仓库权限，无需配置部署密钥。
+推送 `main`、提交 Pull Request 或手动触发 Actions 时，自动构建客户端 JAR、运行服务端测试、检查运行依赖漏洞，并构建与启动独立服务容器做健康检查。Actions 固定到完整提交 SHA。
+
+每次推送到 `main` 且全部检查通过后，自动为该提交创建 tag 和 GitHub Release，上传模组 JAR、源码 JAR 和 SHA-256 校验文件。版本使用 `0.1.<CI运行编号>`，例如第 3 次 CI 对应 `v0.1.3`；运行编号可能因失败或 PR 检查而跳号。JAR 文件名及模组内版本号与 tag 一致。重跑同一轮 CI 使用同一 tag，修复缺失的上传文件；PR 和手动检查不会发布 Release。并行更新会各自执行，不取消旧更新的发布。
+
+构建和测试仅有读取仓库权限，发布任务单独使用 GitHub 自动提供的 `GITHUB_TOKEN` 写入 tag 和 Release，无需配置个人令牌。普通本机构建仍为 `0.1.0`；重现发布版本可运行 `./gradlew :client:build -PmodVersion=0.1.3`。
 
 客户端图形界面和打印机测试通过上面的 `runClientGameTest` 在本机运行；CI 不替代真实正版账号和多人游戏联调。当前没有自动部署：同步服务部署位置确定后，可再为正式版本加入部署流程。
 
