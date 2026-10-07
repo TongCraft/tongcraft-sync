@@ -122,7 +122,11 @@ Windows 构建脚本会检查 `JAVA_HOME`；如果它指向旧 JDK，会尝试�
 
 推送 `main`、提交 Pull Request 或手动触发 Actions 时，自动构建客户端 JAR、运行服务端测试、检查运行依赖漏洞，并构建与启动独立服务容器做健康检查。Actions 固定到完整提交 SHA。
 
-每次推送到 `main` 且全部检查通过后，自动为该提交创建 tag 和 GitHub Release，上传模组 JAR、源码 JAR 和 SHA-256 校验文件。版本使用 `0.1.<CI运行编号>`，例如第 3 次 CI 对应 `v0.1.3`；运行编号可能因失败或 PR 检查而跳号。JAR 文件名及模组内版本号与 tag 一致。重跑同一轮 CI 使用同一 tag，修复缺失的上传文件；PR 和手动检查不会发布 Release。并行更新会各自执行，不取消旧更新的发布。
+更新推送到 `main` 且全部检查通过后，仅在客户端／服务端运行代码、资源、依赖、构建或部署文件、许可证变化时，自动创建 tag 和 GitHub Release。仅修改 README、docs、测试或 CI 配置不会发布。推送的最后一条提交信息含 `[skip release]` 时，仍执行 CI，但不创建 tag 或 Release。
+
+手动控制：进入 Actions → CI → Run workflow，选择 `main`；默认只检查，勾选“检查通过后发布新的 tag 和 Release”才会发布。手动选择发布可发布当前代码，即使最近一次提交只改了文档；其他分支和 PR 不允许发布。
+
+Release 上传模组 JAR、源码 JAR 和 SHA-256 校验文件。版本使用 `0.1.<CI运行编号>`，例如第 3 次 CI 对应 `v0.1.3`；跳过发布、失败或 PR 检查可能使编号跳号。JAR 文件名及模组内版本号与 tag 一致。重跑同一轮 CI 使用同一 tag，修复缺失的上传文件。并行更新会各自执行，不取消旧更新的发布。
 
 构建和测试仅有读取仓库权限，发布任务单独使用 GitHub 自动提供的 `GITHUB_TOKEN` 写入 tag 和 Release，无需配置个人令牌。普通本机构建仍为 `0.1.0`；重现发布版本可运行 `./gradlew :client:build -PmodVersion=0.1.3`。
 

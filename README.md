@@ -1,6 +1,6 @@
 # TongCraft Sync
 
-[![Release](https://img.shields.io/github/v/release/TongCraft/tongcraft-sync?style=flat&color=9C89B8&label=Release)](https://github.com/TongCraft/tongcraft-sync/releases/latest)
+[![Release](https://img.shields.io/github/v/release/TongCraft/tongcraft-sync?style=flat&color=9C89B8&label=Release&sort=semver&cacheSeconds=300)](https://github.com/TongCraft/tongcraft-sync/releases/latest)
 [![CI](https://img.shields.io/github/actions/workflow/status/TongCraft/tongcraft-sync/ci.yml?branch=main&style=flat&label=CI&logo=githubactions)](https://github.com/TongCraft/tongcraft-sync/actions/workflows/ci.yml)
 [![Downloads](https://img.shields.io/github/downloads/TongCraft/tongcraft-sync/total?style=flat&color=F4A7B9&label=Downloads)](https://github.com/TongCraft/tongcraft-sync/releases)
 [![License](https://img.shields.io/github/license/TongCraft/tongcraft-sync?style=flat&color=8AC6D1)](LICENSE)
@@ -44,6 +44,6 @@ npm --prefix service ci
 npm --prefix service test
 ```
 
-Windows 可用 `./build-client.ps1` 构建。每次推送 `main`，CI 通过后自动创建版本 tag 和 Release，附上 JAR 与 SHA-256 校验文件。
+Windows 可用 `./build-client.ps1` 构建。代码、依赖或部署文件更新后，CI 通过才自动发布；仅改文档不发 tag。提交信息加 `[skip release]` 可跳过发布，也可在 Actions 手动勾选发布。Release 附有 JAR 与 SHA-256 校验文件。
 
 [详细指南](docs/GUIDE.md) · [下载模组](https://github.com/TongCraft/tongcraft-sync/releases/latest) · [反馈问题](https://github.com/TongCraft/tongcraft-sync/issues)
