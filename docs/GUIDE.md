@@ -128,6 +128,8 @@ Windows 构建脚本会检查 `JAVA_HOME`；如果它指向旧 JDK，会尝试�
 
 Release 上传模组 JAR、源码 JAR 和 SHA-256 校验文件。版本使用 `0.1.<CI运行编号>`，例如第 3 次 CI 对应 `v0.1.3`；跳过发布、失败或 PR 检查可能使编号跳号。JAR 文件名及模组内版本号与 tag 一致。重跑同一轮 CI 使用同一 tag，修复缺失的上传文件。并行更新会各自执行，不取消旧更新的发布。
 
+README 的 Release 徽章展示已发布的最高版本，不展示 CI 编号或未发布的提交。Shields.io 徽章响应缓存约五分钟，新 Release 发布后可能短暂显示旧版本；点击徽章进入 GitHub Releases 查看发布状态。
+
 构建和测试仅有读取仓库权限，发布任务单独使用 GitHub 自动提供的 `GITHUB_TOKEN` 写入 tag 和 Release，无需配置个人令牌。普通本机构建仍为 `0.1.0`；重现发布版本可运行 `./gradlew :client:build -PmodVersion=0.1.3`。
 
 客户端图形界面和打印机测试通过上面的 `runClientGameTest` 在本机运行；CI 不替代真实正版账号和多人游戏联调。当前没有自动部署：同步服务部署位置确定后，可再为正式版本加入部署流程。
