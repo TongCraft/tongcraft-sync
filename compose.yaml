@@ -1,0 +1,26 @@
+services:
+  sync:
+    build: ./service
+    restart: unless-stopped
+    environment:
+      TONGCRAFT_ADMIN_UUID: ${TONGCRAFT_ADMIN_UUID:?Set the owner Minecraft UUID}
+    volumes:
+      - sync-data:/app/data
+    expose:
+      - "8787"
+  caddy:
+    image: caddy:2.10.2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SYNC_DOMAIN: ${SYNC_DOMAIN:?Set the sync domain}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+volumes:
+  sync-data:
+  caddy-data:
+  caddy-config:

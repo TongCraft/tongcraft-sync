@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "tongcraft_sync",
+  "version": "${version}",
+  "name": "TongCraft Sync",
+  "description": "Independent authenticated schematic sharing for TongCraft",
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["org.tongcraft.sync.TongCraftClient"],
+    "modmenu": ["org.tongcraft.sync.ModMenuIntegration"]
+  },
+  "depends": { "fabricloader": ">=0.19.5", "minecraft": "26.2", "java": ">=25", "fabric-api": "*", "litematica": ">=0.28.8", "malilib": ">=0.29.6" }
+}

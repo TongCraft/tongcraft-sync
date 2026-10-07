@@ -1,0 +1,33 @@
+plugins { id 'net.fabricmc.fabric-loom' version '1.17.12' }
+version = '0.1.0'
+group = 'org.tongcraft'
+base { archivesName = 'tongcraft-sync-26.2' }
+repositories {
+    mavenCentral()
+    maven { url = 'https://masa.dy.fi/maven/sakura-ryoko' }
+    maven { url = 'https://maven.terraformersmc.com/releases/' }
+    maven { url = 'https://maven.fallenbreath.me/releases' }
+    maven { url = 'https://api.modrinth.com/maven'; content { includeGroup 'maven.modrinth' } }
+}
+dependencies {
+    minecraft 'com.mojang:minecraft:26.2'
+    implementation 'net.fabricmc:fabric-loader:0.19.5'
+    implementation 'net.fabricmc.fabric-api:fabric-api:0.158.0+26.2'
+    implementation 'fi.dy.masa.malilib:malilib-fabric-26.2:0.29.6'
+    implementation 'fi.dy.masa.litematica:litematica-fabric-26.2:0.28.8'
+    compileOnly 'com.terraformersmc:modmenu:20.0.1'
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 25 }
+java { withSourcesJar() }
+jar { from(rootProject.file('LICENSE')) }
+processResources { inputs.property 'version', project.version; filesMatching('fabric.mod.json') { expand 'version': project.version } }
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = 'tongcraft_sync_tests'
+        enableGameTests = false
+        enableClientGameTests = true
+        eula = true
+    }
+}
+dependencies { gametestImplementation 'maven.modrinth:litematica-printer:7l7ihnI0' }

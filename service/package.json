@@ -1,0 +1,16 @@
+{
+  "name": "tongcraft-sync-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.13.0"
+  },
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "ws": "8.22.0"
+  }
+}

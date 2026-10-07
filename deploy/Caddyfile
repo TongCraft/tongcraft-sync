@@ -1,0 +1,6 @@
+{$SYNC_DOMAIN} {
+    request_body {
+        max_size 33MB
+    }
+    reverse_proxy sync:8787
+}
