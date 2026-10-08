@@ -106,6 +106,7 @@ export function placement(input) {
 export function validateSchematic(
   compressed,
   maxOutputLength = 128 * 1024 * 1024,
+  maxNodes = 2_000_000,
 ) {
   let buf;
   try {
@@ -133,7 +134,7 @@ export function validateSchematic(
   }
   function payload(type, depth) {
     check(
-      depth <= 32 && ++nodes <= 2000000,
+      depth <= 32 && ++nodes <= maxNodes,
       400,
       "NBT complexity limit exceeded",
     );

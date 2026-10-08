@@ -269,9 +269,11 @@ export class SyncRoom extends DurableObject {
     try {
       response = await fetch(url, {
         signal: AbortSignal.timeout(10000),
-        redirect: "error",
+        // Workers reject redirect:"error"; manual keeps redirects from reaching another host.
+        redirect: "manual",
       });
-    } catch {
+    } catch (error) {
+      console.error("Mojang session fetch failed", error?.name, error?.message);
       throw new HttpError(503, "Minecraft authentication service unavailable");
     }
     check(
@@ -584,7 +586,7 @@ export class SyncRoom extends DurableObject {
           409,
           "Schematic upload quota reached",
         );
-        const metadata = validateSchematic(bytes, 64 * 1024 * 1024);
+        const metadata = validateSchematic(bytes, 64 * 1024 * 1024, 100_000);
         this.transaction(() => {
           this.reserveR2("put", bytes.length);
           this.run(
