@@ -1,5 +1,5 @@
 import { env, exports } from "cloudflare:workers";
-import { runInDurableObject } from "cloudflare:test";
+import { evictDurableObject, runInDurableObject } from "cloudflare:test";
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
@@ -179,6 +179,7 @@ test("Cloudflare Sync preserves invite, ticket, schematic, placement, and revoca
   );
   client.accept();
   expect(await initial).toEqual({ type: "invalidate" });
+  await evictDurableObject(stub, { webSockets: "hibernate" });
 
   const ticket = await request("/library/ticket", {
     method: "POST",
