@@ -97,6 +97,13 @@ export class SyncRoom extends DurableObject {
   rate(request, group, max) {
     const key = `${group}:${request.headers.get("X-Sync-Client-IP")}`;
     const now = Date.now();
+    if (!this.nextSweep || this.nextSweep <= now) {
+      this.run("DELETE FROM limits WHERE until<=?", now);
+      this.run("DELETE FROM sessions WHERE expires<=?", now);
+      this.run("DELETE FROM library_tickets WHERE expires<=?", now);
+      this.run("DELETE FROM challenges WHERE expires<=?", now);
+      this.nextSweep = now + 5 * 60 * 1000;
+    }
     const entry = this.get("SELECT until,count FROM limits WHERE key=?", key);
     if (!entry || entry.until <= now)
       this.run(
