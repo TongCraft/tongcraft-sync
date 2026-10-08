@@ -14,6 +14,7 @@ Minecraft Java **26.2** 的游戏内投影协作模组与独立同步服务。�
 - 创建者和管理员可更新或删除共享放置；使用版本号避免覆盖别人的修改。
 - 管理员在游戏内创建／撤销邀请、停用／恢复成员。停用成员立即撤销会话、关闭同步连接。
 - 本地缓存、断线重试、WebSocket 更新通知和 30 秒补偿刷新。离开指定游戏服务器时移除本模组创建的投影。
+- 在“素材库”中搜索并下载公开 `.litematic` 到本地 `schematics` 目录；已加入的成员可复制五分钟有效、单次使用的网页上传链接。
 
 投影是 **Litematica 的正常 `SchematicPlacement`**，打印机能够读取其蓝图。已用 Litematica Printer **26.2-3.2.2** 在真实客户端的测试世界中验证：同步本身不修改世界方块，主动开启打印机后能放置石块，且游戏服务端接受放置。复杂方块、红石和 TongCraft 的具体 Carpet 配置仍需联调。模组不会自动开启打印机，也不会代替玩家执行方块放置。
 
@@ -52,6 +53,7 @@ Minecraft Java **26.2** 的游戏内投影协作模组与独立同步服务。�
 ```dotenv
 TONGCRAFT_ADMIN_UUID=你的正版Minecraft账号UUID
 SYNC_DOMAIN=sync.example.com
+TONGCRAFT_LIBRARY_URL=https://library.weiuou.top
 ```
 
 域名 DNS 指向部署主机，开放 TCP 80 和 443，然后：
@@ -132,7 +134,7 @@ README 的 Release 徽章展示已发布的最高版本，不展示 CI 编号或
 
 构建和测试仅有读取仓库权限，发布任务单独使用 GitHub 自动提供的 `GITHUB_TOKEN` 写入 tag 和 Release，无需配置个人令牌。普通本机构建仍为 `0.1.0`；重现发布版本可运行 `./gradlew :client:build -PmodVersion=0.1.3`。
 
-客户端图形界面和打印机测试通过上面的 `runClientGameTest` 在本机运行；CI 不替代真实正版账号和多人游戏联调。当前没有自动部署：同步服务部署位置确定后，可再为正式版本加入部署流程。
+客户端图形界面和打印机测试通过上面的 `runClientGameTest` 在本机运行；CI 不替代真实正版账号和多人游戏联调。Cloudflare 版本的部署方式、自动部署设置和 R2 免费额度保护见 [Cloudflare 部署](../cloudflare/README.md)。
 
 ## 约束与联调
 

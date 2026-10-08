@@ -103,10 +103,14 @@ export function placement(input) {
 }
 
 // Bounded NBT reader: arrays are skipped rather than allocated. Only header/region geometry is retained.
-export function validateSchematic(compressed) {
+export function validateSchematic(
+  compressed,
+  maxOutputLength = 128 * 1024 * 1024,
+  maxNodes = 2_000_000,
+) {
   let buf;
   try {
-    buf = gunzipSync(compressed, { maxOutputLength: 128 * 1024 * 1024 });
+    buf = gunzipSync(compressed, { maxOutputLength });
   } catch {
     throw new HttpError(400, "Invalid or oversized gzip schematic");
   }
@@ -130,7 +134,7 @@ export function validateSchematic(compressed) {
   }
   function payload(type, depth) {
     check(
-      depth <= 32 && ++nodes <= 2000000,
+      depth <= 32 && ++nodes <= maxNodes,
       400,
       "NBT complexity limit exceeded",
     );

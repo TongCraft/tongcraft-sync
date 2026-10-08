@@ -185,6 +185,33 @@ test("bound invites, expiration, revocation, and concurrent single-use redemptio
   );
 });
 
+test("library login tickets are member scoped, one use, and expire", async (t) => {
+  const f = await fixture(t);
+  const owner = (await f.login(admin, "Owner")).data.token;
+  assert.equal((await f.req("/library/ticket", { method: "POST" })).status, 401);
+  const invite = (await f.invite(owner)).data.code;
+  const aliceToken = (await f.login(alice, "Alice", invite)).data.token;
+  const issued = await f.req("/library/ticket", { method: "POST", token: aliceToken });
+  assert.equal(issued.status, 200);
+  const url = new URL(issued.data.url);
+  assert.equal(url.origin, "https://library.weiuou.top");
+  const ticket = new URLSearchParams(url.hash.slice(1)).get("ticket");
+  assert.match(ticket, /^[A-Za-z0-9_-]{43}$/);
+  const redeemed = await f.req("/library/redeem", { method: "POST", data: { ticket } });
+  assert.deepEqual(redeemed.data, { uuid: alice, name: "Alice", role: "member" });
+  assert.equal((await f.req("/library/redeem", { method: "POST", data: { ticket } })).status, 401);
+  const expiring = (await f.req("/library/ticket", { method: "POST", token: aliceToken })).data.url;
+  f.advance(301_000);
+  assert.equal((await f.req("/library/redeem", {
+    method: "POST", data: { ticket: new URLSearchParams(new URL(expiring).hash.slice(1)).get("ticket") },
+  })).status, 401);
+  const revocable = (await f.req("/library/ticket", { method: "POST", token: aliceToken })).data.url;
+  assert.equal((await f.req(`/members/${alice}`, { method: "PATCH", token: owner, data: { disabled: true } })).status, 200);
+  assert.equal((await f.req("/library/redeem", {
+    method: "POST", data: { ticket: new URLSearchParams(new URL(revocable).hash.slice(1)).get("ticket") },
+  })).status, 401);
+});
+
 test("shared placements, private aliases, owner authorization, optimistic conflicts and cached download", async (t) => {
   const f = await fixture(t),
     owner = (await f.login(admin, "Owner")).data.token;

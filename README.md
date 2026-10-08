@@ -15,6 +15,7 @@
 - 共享蓝图、坐标、旋转、镜像和子区域设置，兼容投影打印机。
 - 每个人独立控制显示、隐藏和个人别名。
 - 正版账号验证、一次性邀请，游戏内管理成员和投影。
+- 游戏内浏览 TongCraft 投影素材库、校验下载蓝图；已加入成员可领取一次性网页上传链接。
 
 ## 开始使用
 
@@ -28,7 +29,9 @@
 
 ## 部署同步服务
 
-复制 `.env.example` 为 `.env`，填写管理员正版 UUID 和同步域名；域名指向主机并开放 80 / 443：
+推荐使用 [Cloudflare 部署](cloudflare/README.md)：Worker + SQLite Durable Object 处理成员和实时同步，R2 保存游戏内共享的蓝图；默认地址 `https://sync.weiuou.top`。正式站点 `https://library.weiuou.top` 用同步服务的成员身份开通网页上传。
+
+也可以自行部署原来的 Node 服务。复制 `.env.example` 为 `.env`，填写管理员正版 UUID 和同步域名；域名指向主机并开放 80 / 443：
 
 ```sh
 docker compose up -d --build

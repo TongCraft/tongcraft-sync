@@ -499,6 +499,33 @@ public final class SyncClient {
         });
   }
 
+  public void copyLibraryLoginLink() {
+    if (!authenticated()) {
+      status = "请先进入游戏服务器并登录同步服务";
+      return;
+    }
+    int gen = generation;
+    ClientConfig cfg = config;
+    String auth = token;
+    status = "正在生成网页登录链接…";
+    worker.execute(
+        () -> {
+          try {
+            JsonObject result = request(cfg, "POST", "/library/ticket", null, null, auth);
+            String url = result.get("url").getAsString();
+            mc.execute(
+                () -> {
+                  if (gen == generation) {
+                    mc.keyboardHandler.setClipboard(url);
+                    status = "网页上传链接已复制，五分钟内可使用一次";
+                  }
+                });
+          } catch (Exception e) {
+            failed(gen, e, false);
+          }
+        });
+  }
+
   private JsonObject request(
       ClientConfig cfg, String method, String path, JsonObject data, byte[] raw, String auth)
       throws Exception {

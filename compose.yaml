@@ -4,6 +4,7 @@ services:
     restart: unless-stopped
     environment:
       TONGCRAFT_ADMIN_UUID: ${TONGCRAFT_ADMIN_UUID:?Set the owner Minecraft UUID}
+      TONGCRAFT_LIBRARY_URL: ${TONGCRAFT_LIBRARY_URL:-https://library.weiuou.top}
     volumes:
       - sync-data:/app/data
     expose:

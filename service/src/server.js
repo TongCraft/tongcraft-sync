@@ -42,6 +42,7 @@ async function mojangVerify(name, serverId) {
 export async function createService({
   dataDir,
   adminUuid,
+  libraryUrl = "https://library.weiuou.top",
   verifySession = mojangVerify,
   clock = Date.now,
   maxUpload = 32 * 1024 * 1024,
@@ -52,6 +53,7 @@ export async function createService({
     CREATE TABLE IF NOT EXISTS members(uuid TEXT PRIMARY KEY,name TEXT NOT NULL,role TEXT NOT NULL,disabled INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS invites(id TEXT PRIMARY KEY,hash TEXT UNIQUE NOT NULL,note TEXT NOT NULL,bound_uuid TEXT,expires INTEGER NOT NULL,used_by TEXT,revoked INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS sessions(hash TEXT PRIMARY KEY,uuid TEXT NOT NULL REFERENCES members(uuid),expires INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS library_tickets(hash TEXT PRIMARY KEY,uuid TEXT NOT NULL REFERENCES members(uuid),expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS blobs(hash TEXT PRIMARY KEY,size INTEGER NOT NULL,metadata TEXT NOT NULL,uploader TEXT NOT NULL REFERENCES members(uuid));
     CREATE TABLE IF NOT EXISTS blob_access(uuid TEXT NOT NULL REFERENCES members(uuid),hash TEXT NOT NULL REFERENCES blobs(hash),PRIMARY KEY(uuid,hash));
     CREATE TABLE IF NOT EXISTS placements(id TEXT PRIMARY KEY,owner TEXT NOT NULL REFERENCES members(uuid),revision INTEGER NOT NULL,updated INTEGER NOT NULL,body TEXT NOT NULL);
@@ -198,6 +200,25 @@ export async function createService({
       rate(req, "general", 300);
       if (req.method === "GET" && path === "/health")
         return respond(200, { ok: true, protocol: 1 });
+      if (req.method === "POST" && path === "/library/redeem") {
+        rate(req, "library", 60);
+        const input = await body(req);
+        check(
+          typeof input.ticket === "string" && /^[A-Za-z0-9_-]{43}$/.test(input.ticket),
+          401,
+          "Invalid library ticket",
+        );
+        const profile = transaction(() => {
+          const row = get(
+            "SELECT t.hash,t.expires,m.uuid,m.name,m.role,m.disabled FROM library_tickets t JOIN members m ON m.uuid=t.uuid WHERE t.hash=?",
+            digest(input.ticket),
+          );
+          check(row && row.expires > clock() && !row.disabled, 401, "Library ticket expired or used");
+          run("DELETE FROM library_tickets WHERE hash=?", row.hash);
+          return { uuid: row.uuid, name: row.name, role: row.role };
+        });
+        return respond(200, profile);
+      }
       if (req.method === "POST" && path === "/auth/challenge") {
         rate(req, "auth", 20);
         const input = await body(req);
@@ -298,6 +319,25 @@ export async function createService({
         }
       }
       const member = memberFor(req);
+      if (req.method === "POST" && path === "/library/ticket") {
+        rate(req, "library", 10);
+        const url = new URL(libraryUrl);
+        check(
+          url.protocol === "https:" ||
+            (url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)),
+          500,
+          "Invalid library URL",
+        );
+        const ticket = secret();
+        run(
+          "INSERT INTO library_tickets(hash,uuid,expires) VALUES(?,?,?)",
+          digest(ticket),
+          member.uuid,
+          clock() + 5 * 60 * 1000,
+        );
+        url.hash = `ticket=${ticket}`;
+        return respond(200, { url: url.toString(), expiresIn: 300 });
+      }
       if (req.method === "POST" && path === "/auth/logout") {
         run("DELETE FROM sessions WHERE hash=?", member.sessionHash);
         for (const ws of wss.clients)
@@ -395,6 +435,7 @@ export async function createService({
         );
         if (input.disabled) {
           run("DELETE FROM sessions WHERE uuid=?", memberPath[1]);
+          run("DELETE FROM library_tickets WHERE uuid=?", memberPath[1]);
           closeSessions(memberPath[1]);
         }
         notify();
@@ -622,6 +663,7 @@ export async function createService({
       if (c.expires <= clock()) challenges.delete(id);
     for (const [id, l] of limits) if (l.until <= clock()) limits.delete(id);
     run("DELETE FROM sessions WHERE expires<=?", clock());
+    run("DELETE FROM library_tickets WHERE expires<=?", clock());
     for (const ws of wss.clients) {
       if (ws.expires <= clock()) ws.close(4001, "Session expired");
       else if (!ws.alive) ws.terminate();
