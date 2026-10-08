@@ -8,6 +8,7 @@ if (!process.env.TONGCRAFT_ADMIN_UUID)
 const service = await createService({
   dataDir: resolve(process.env.TONGCRAFT_DATA_DIR || "./data"),
   adminUuid: process.env.TONGCRAFT_ADMIN_UUID,
+  libraryUrl: process.env.TONGCRAFT_LIBRARY_URL || "https://library.weiuou.top",
 });
 const port = Number(process.env.PORT || 8787),
   host = process.env.HOST || "127.0.0.1";

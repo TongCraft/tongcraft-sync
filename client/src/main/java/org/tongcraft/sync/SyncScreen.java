@@ -137,15 +137,14 @@ public final class SyncScreen extends Screen {
           page++;
           rebuildWidgets();
         });
-    int thirds = (w - 8) / 3;
-    button("发布选中投影", x, height - 55, thirds, this::publishSelected);
-    button("导入蓝图", x + thirds + 4, height - 55, thirds, this::importSchematic);
+    int actions = sync.admin() ? 4 : 3;
+    int actionWidth = (w - (actions - 1) * 4) / actions;
+    button("发布选中投影", x, height - 55, actionWidth, this::publishSelected);
+    button("导入蓝图", x + actionWidth + 4, height - 55, actionWidth, this::importSchematic);
+    button("素材库", x + 2 * (actionWidth + 4), height - 55, actionWidth,
+        () -> minecraft.gui.setScreen(new LibraryScreen(this)));
     if (sync.admin())
-      button(
-          "成员与邀请",
-          x + 2 * (thirds + 4),
-          height - 55,
-          thirds,
+      button("成员与邀请", x + 3 * (actionWidth + 4), height - 55, actionWidth,
           () -> minecraft.gui.setScreen(new AdminScreen(this)));
   }
 
