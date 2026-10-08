@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
+import { requestSession } from "./mojang.js";
 import {
   check,
   HttpError,
@@ -267,26 +268,26 @@ export class SyncRoom extends DurableObject {
     if (bytes) this.increment("r2:bytes", bytes);
   }
   async verifySession(name, serverId) {
-    const url = new URL(
-      "https://sessionserver.mojang.com/session/minecraft/hasJoined",
-    );
-    url.searchParams.set("username", name);
-    url.searchParams.set("serverId", serverId);
     let response;
     try {
-      response = await fetch(url, {
-        signal: AbortSignal.timeout(10000),
-        // Workers reject redirect:"error"; manual keeps redirects from reaching another host.
-        redirect: "manual",
-      });
+      response = await requestSession(name, serverId);
     } catch (error) {
       console.error("Mojang session fetch failed", error?.name, error?.message);
       throw new HttpError(503, "Minecraft authentication service unavailable");
     }
+    if (response.status !== 200) {
+      console.warn(
+        "Mojang session verification rejected",
+        response.status,
+        response.headers.get("content-type"),
+      );
+    }
     check(
       response.status === 200,
-      response.status >= 500 ? 503 : 401,
-      "Minecraft session verification failed",
+      response.status === 204 ? 401 : 503,
+      response.status === 204
+        ? "Minecraft session verification failed"
+        : "Minecraft authentication service unavailable",
     );
     return response.json();
   }

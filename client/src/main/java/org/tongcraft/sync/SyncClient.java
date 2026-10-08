@@ -81,6 +81,58 @@ public final class SyncClient {
     return bridge;
   }
 
+  public java.util.List<JsonObject> projections() {
+    return bridge.projections(state, authenticated());
+  }
+
+  public boolean canRemove(JsonObject row) {
+    return !bridge.busy(LitematicaBridge.rowKey(row))
+        && (!row.has("id") || (authenticated() && editable(row) && row.has("revision")));
+  }
+
+  public void removeProjection(JsonObject row, boolean deleteLocal, Runnable success) {
+    if (!canRemove(row)) throw new IllegalArgumentException("请登录；只有创建者或管理员可以撤回共享投影");
+    if (!row.has("id")) {
+      if (!deleteLocal) return;
+      bridge.finishRemoval(row, null);
+      status = "已删除本地投影，蓝图文件保留";
+      if (success != null) success.run();
+      return;
+    }
+    JsonObject retained = deleteLocal ? null : bridge.captureLocal(row);
+    int gen = generation;
+    ClientConfig cfg = config;
+    String auth = token, id = row.get("id").getAsString(), key = LitematicaBridge.rowKey(row);
+    bridge.operation(key, "正在取消同步");
+    status = "正在撤回共享投影…";
+    worker.execute(() -> {
+      boolean accepted = false;
+      try {
+        if (gen != generation) return;
+        request(cfg, "DELETE", "/placements/" + id,
+            Wire.object("revision", row.get("revision").getAsInt()), null, auth);
+        accepted = true;
+        mc.execute(() -> {
+          if (gen != generation) return;
+          bridge.finishRemoval(row, retained);
+          JsonObject updated = state.deepCopy();
+          var placements = Wire.array(updated, "placements");
+          for (int i = placements.size() - 1; i >= 0; i--)
+            if (id.equals(Wire.string(placements.get(i).getAsJsonObject(), "id", ""))) placements.remove(i);
+          Wire.nested(updated, "preferences").remove(id);
+          state = updated;
+          status = deleteLocal ? "已取消同步并删除投影，蓝图文件保留" : "已取消同步并保留本地投影";
+          if (success != null) success.run();
+        });
+        fetchState(gen, cfg, auth);
+      } catch (Exception error) {
+        boolean rejected = !accepted;
+        mc.execute(() -> { if (gen == generation && rejected) bridge.operation(key, "取消同步失败"); });
+        failed(gen, error, false);
+      }
+    });
+  }
+
   public void message(String value) {
     status = value;
   }
@@ -332,6 +384,7 @@ public final class SyncClient {
         () -> {
           if (gen == generation) {
             state = fresh;
+            bridge.acceptState(fresh);
             status = "已同步 " + Wire.array(fresh, "placements").size() + " 个投影";
           }
         });
@@ -475,9 +528,16 @@ public final class SyncClient {
     int gen = generation;
     ClientConfig cfg = config;
     String auth = token;
+    JsonObject previous = bridge.sharedFor(transform);
+    if (previous.has("id") && !editable(previous))
+      throw new IllegalArgumentException("只有创建者或管理员可以更新这个共享投影");
+    String localId = Wire.string(transform, "hash_code", ""), key = bridge.selectedKey();
+    if (bridge.busy(key)) return;
+    bridge.operation(key, previous.has("id") ? "正在同步修改" : "正在发布");
     status = "正在上传蓝图…";
     worker.execute(
         () -> {
+          boolean accepted = false;
           try {
             if (gen != generation) return;
             if (Files.size(file) > 32 * 1024 * 1024)
@@ -487,13 +547,26 @@ public final class SyncClient {
             if (gen != generation) return;
             JsonObject data = Wire.sharedPlacement(transform);
             data.addProperty("hash", upload.get("hash").getAsString());
-            request(cfg, "POST", "/placements", data, null, auth);
+            if (previous.has("id")) data.addProperty("revision", previous.get("revision").getAsInt());
+            JsonObject published = request(cfg, previous.has("id") ? "PUT" : "POST",
+                previous.has("id") ? "/placements/" + previous.get("id").getAsString() : "/placements", data, null, auth);
+            if (!Wire.string(published, "id", "").matches("[a-f0-9-]{36}") || !published.has("revision"))
+              throw new IllegalArgumentException("服务返回了无效的共享投影信息，请刷新列表");
+            accepted = true;
+            mc.execute(() -> {
+              if (gen == generation) {
+                bridge.bind(localId, published);
+                bridge.operation(key, "");
+              }
+            });
             fetchState(gen, cfg, auth);
             mc.execute(
                 () -> {
                   if (gen == generation && success != null) success.run();
                 });
           } catch (Exception e) {
+            String result = accepted ? "已发布 · 刷新失败" : "同步失败";
+            mc.execute(() -> { if (gen == generation) bridge.operation(key, result); });
             failed(gen, e, false);
           }
         });

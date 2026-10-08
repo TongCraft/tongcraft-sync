@@ -15,6 +15,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import net.fabricmc.loader.api.FabricLoader;
@@ -29,6 +31,7 @@ public final class LibraryScreen extends Screen {
   private static final String BASE =
       System.getProperty("tongcraft.libraryUrl", "https://library.weiuou.top").replaceAll("/+$", "");
   private final Screen parent;
+  private final String base;
   private final SyncClient sync = TongCraftClient.SYNC;
   private final HttpClient http =
       HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
@@ -40,19 +43,25 @@ public final class LibraryScreen extends Screen {
             return thread;
           });
   private JsonArray items = new JsonArray();
+  private final List<Button> downloadButtons = new ArrayList<>();
   private EditBox search;
   private String query = "", status = "正在加载素材库…";
   private int page = 1, total, pageSize = 4, requestId;
   private long searchChangedAt;
-  private boolean started, closed;
+  private boolean started, closed, downloading;
 
   public LibraryScreen(Screen parent) {
-    super(Component.literal("TongCraft · 投影素材库"));
-    this.parent = parent;
+    this(parent, BASE);
   }
 
-  private void button(String label, int x, int y, int width, Runnable action) {
-    addRenderableWidget(
+  LibraryScreen(Screen parent, String base) {
+    super(Component.literal("TongCraft · 投影素材库"));
+    this.parent = parent;
+    this.base = base.replaceAll("/+$", "");
+  }
+
+  private Button button(String label, int x, int y, int width, Runnable action) {
+    return addRenderableWidget(
         Button.builder(Component.literal(label), b -> action.run())
             .bounds(x, y, width, 20)
             .build());
@@ -86,14 +95,19 @@ public final class LibraryScreen extends Screen {
     }
     button("刷新", this.width - 76, 36, 64, this::refresh);
 
+    downloadButtons.clear();
     for (int i = 0; i < items.size(); i++) {
       JsonObject item = items.get(i).getAsJsonObject();
-      String id = Wire.string(item, "id", "");
       String title = Wire.string(item, "title", "未命名蓝图");
       int y = 70 + i * 50;
-      button(font.plainSubstrByWidth(title, width - 105), x, y, width - 90,
+      button(font.plainSubstrByWidth(title, width - 143), x, y, width - 136,
           () -> status = title + " · " + Wire.string(item, "description", ""));
-      button("下载", this.width - 90, y, 78, () -> download(item));
+      Button download = button("下载", this.width - 142, y, 48, () -> download(item, false));
+      Button place = button("放置投影", this.width - 90, y, 78, () -> download(item, true));
+      download.active = !downloading;
+      place.active = !downloading && minecraft.player != null && minecraft.level != null;
+      downloadButtons.add(download);
+      downloadButtons.add(place);
     }
     button("上一页", x, height - 80, 70,
         () -> { if (page > 1) { page--; refresh(); } });
@@ -126,7 +140,7 @@ public final class LibraryScreen extends Screen {
             String path = "/api/items?limit=" + requestedSize + "&page=" + requestedPage
                 + "&q=" + URLEncoder.encode(requestedQuery, StandardCharsets.UTF_8);
             HttpRequest request =
-                HttpRequest.newBuilder(URI.create(BASE + path))
+                HttpRequest.newBuilder(URI.create(base + path))
                     .timeout(Duration.ofSeconds(20)).GET().build();
             HttpResponse<InputStream> response =
                 http.send(request, HttpResponse.BodyHandlers.ofInputStream());
@@ -145,7 +159,7 @@ public final class LibraryScreen extends Screen {
                   if (closed || current != requestId) return;
                   items = found;
                   total = count;
-                  status = count + " 份素材 · 第 " + page + " 页";
+                  if (!downloading) status = count + " 份素材 · 第 " + page + " 页";
                   rebuildWidgets();
                 });
           } catch (Exception error) {
@@ -158,7 +172,12 @@ public final class LibraryScreen extends Screen {
         });
   }
 
-  private void download(JsonObject item) {
+  private void download(JsonObject item, boolean place) {
+    if (downloading || closed) return;
+    if (place && (minecraft.player == null || minecraft.level == null)) {
+      status = "请先进入世界再放置投影";
+      return;
+    }
     String id = Wire.string(item, "id", "");
     String hash = Wire.string(item, "sha256", "");
     String name = Wire.string(item, "title", "蓝图");
@@ -166,12 +185,14 @@ public final class LibraryScreen extends Screen {
       status = "素材目录返回了无效蓝图";
       return;
     }
+    downloading = true;
+    downloadButtons.forEach(button -> button.active = false);
     status = "正在下载：" + name;
     worker.execute(
         () -> {
           try {
             HttpRequest request =
-                HttpRequest.newBuilder(URI.create(BASE + "/api/items/" + id + "/file"))
+                HttpRequest.newBuilder(URI.create(base + "/api/items/" + id + "/file"))
                     .timeout(Duration.ofSeconds(60)).GET().build();
             HttpResponse<InputStream> response =
                 http.send(request, HttpResponse.BodyHandlers.ofInputStream());
@@ -192,9 +213,37 @@ public final class LibraryScreen extends Screen {
             } finally {
               Files.deleteIfExists(tmp);
             }
-            minecraft.execute(() -> { if (!closed) status = "已保存到 schematics：" + target.getFileName(); });
+            minecraft.execute(
+                () -> {
+                  if (closed) return;
+                  downloading = false;
+                  rebuildWidgets();
+                  status = "已保存到 schematics：" + target.getFileName();
+                  if (place && minecraft.gui.screen() == this) {
+                    try {
+                      JsonObject data = sync.bridge().localTransform(target, name);
+                      PlacementForm.open(this, "放置本地投影", "放置投影", "投影名称", data,
+                          values -> {
+                            sync.bridge().placeLocal(values);
+                            sync.message("已放置并选中本地投影；需要共享时使用“发布此投影”");
+                            closed = true;
+                            worker.shutdownNow();
+                            minecraft.gui.setScreen(null);
+                          });
+                    } catch (Exception error) {
+                      status = "放置失败：" + error.getMessage();
+                    }
+                  }
+                });
           } catch (Exception error) {
-            minecraft.execute(() -> { if (!closed) status = "下载失败：" + error.getMessage(); });
+            minecraft.execute(
+                () -> {
+                  if (!closed) {
+                    downloading = false;
+                    rebuildWidgets();
+                    status = "下载失败：" + error.getMessage();
+                  }
+                });
           }
         });
   }
