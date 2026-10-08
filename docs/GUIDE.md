@@ -134,7 +134,7 @@ README 的 Release 徽章展示已发布的最高版本，不展示 CI 编号或
 
 构建和测试仅有读取仓库权限，发布任务单独使用 GitHub 自动提供的 `GITHUB_TOKEN` 写入 tag 和 Release，无需配置个人令牌。普通本机构建仍为 `0.1.0`；重现发布版本可运行 `./gradlew :client:build -PmodVersion=0.1.3`。
 
-客户端图形界面和打印机测试通过上面的 `runClientGameTest` 在本机运行；CI 不替代真实正版账号和多人游戏联调。当前没有自动部署：同步服务部署位置确定后，可再为正式版本加入部署流程。
+客户端图形界面和打印机测试通过上面的 `runClientGameTest` 在本机运行；CI 不替代真实正版账号和多人游戏联调。Cloudflare 版本的部署方式、自动部署设置和 R2 免费额度保护见 [Cloudflare 部署](../cloudflare/README.md)。
 
 ## 约束与联调
 

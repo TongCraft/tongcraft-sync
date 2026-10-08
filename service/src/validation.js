@@ -103,10 +103,13 @@ export function placement(input) {
 }
 
 // Bounded NBT reader: arrays are skipped rather than allocated. Only header/region geometry is retained.
-export function validateSchematic(compressed) {
+export function validateSchematic(
+  compressed,
+  maxOutputLength = 128 * 1024 * 1024,
+) {
   let buf;
   try {
-    buf = gunzipSync(compressed, { maxOutputLength: 128 * 1024 * 1024 });
+    buf = gunzipSync(compressed, { maxOutputLength });
   } catch {
     throw new HttpError(400, "Invalid or oversized gzip schematic");
   }
