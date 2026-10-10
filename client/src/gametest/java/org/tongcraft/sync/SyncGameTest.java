@@ -190,10 +190,15 @@ public final class SyncGameTest implements FabricClientGameTest {
     byte[] bytes = Files.readAllBytes(file);
     String id = "00000000-0000-4000-8000-000000000001";
     String hash = Wire.hash(bytes);
-    JsonObject catalogue = Wire.object("total", 1, "items", List.of(Wire.object(
-        "id", id, "title", "素材库测试石块", "description", "本地放置测试",
-        "sha256", hash, "size", bytes.length, "blocks", 1,
-        "owner", Wire.object("name", "Test"))));
+    List<JsonObject> entries = new ArrayList<>();
+    for (int i = 1; i <= 12; i++) {
+      String entryId = "00000000-0000-4000-8000-%012d".formatted(i);
+      entries.add(Wire.object("id", entryId, "title", i == 1 ? "素材库测试石块" : "素材库测试" + i,
+          "description", "本地放置测试", "sha256", hash, "size", bytes.length, "blocks", 1,
+          "previewUrl", "/api/items/" + entryId + "/preview", "owner", Wire.object("name", "Test")));
+    }
+    byte[] preview = Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLttAAAAABJRU5ErkJggg==");
+    AtomicInteger downloads = new AtomicInteger(), previewRequests = new AtomicInteger();
     AtomicBoolean corrupt = new AtomicBoolean(), hold = new AtomicBoolean(), uploaded = new AtomicBoolean();
     CountDownLatch requested = new CountDownLatch(1), release = new CountDownLatch(1);
     HttpServer fixture = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -207,7 +212,21 @@ public final class SyncGameTest implements FabricClientGameTest {
           return;
         }
         boolean download = exchange.getRequestURI().getPath().endsWith("/file");
-        byte[] body = download ? (corrupt.get() ? new byte[] {1, 2, 3} : bytes)
+        boolean image = exchange.getRequestURI().getPath().endsWith("/preview");
+        String query = exchange.getRequestURI().getQuery();
+        int limit = 24, page = 1;
+        if (query != null) for (String param : query.split("&")) {
+          if (param.startsWith("limit=")) limit = Integer.parseInt(param.substring(6));
+          if (param.startsWith("page=")) page = Integer.parseInt(param.substring(5));
+        }
+        JsonObject catalogue = Wire.object("total", entries.size(), "items",
+            entries.subList(Math.min(entries.size(), (page - 1) * limit), Math.min(entries.size(), page * limit)));
+        if (download) downloads.incrementAndGet();
+        if (image) {
+          previewRequests.incrementAndGet();
+          exchange.getResponseHeaders().set("Content-Type", "image/png");
+        }
+        byte[] body = image ? preview : download ? (corrupt.get() ? new byte[] {1, 2, 3} : bytes)
             : Wire.GSON.toJson(catalogue).getBytes(java.nio.charset.StandardCharsets.UTF_8);
         if (download && hold.get()) {
           requested.countDown();
@@ -227,8 +246,31 @@ public final class SyncGameTest implements FabricClientGameTest {
         mc.gui.setScreen(new LibraryScreen(null, base));
       });
       context.waitFor(mc -> mc.gui.screen() instanceof LibraryScreen screen && screen.children().stream()
-          .anyMatch(child -> child instanceof Button button && button.getMessage().getString().equals("放置投影")), 200);
+          .anyMatch(child -> child instanceof Button button && button.getMessage().getString().equals("素材库测试石块")), 200);
+      context.runOnClient(mc -> {
+        var screen = mc.gui.screen();
+        List<Button> cards = screen.children().stream().filter(Button.class::isInstance).map(Button.class::cast)
+            .filter(button -> button.getMessage().getString().startsWith("素材库测试")).toList();
+        check(cards.size() >= 4, "Library still shows one item per page");
+        for (Button a : cards) {
+          check(a.getBottom() <= screen.height - 65, "Library card overlaps pagination");
+          for (Button b : cards) if (a != b)
+            check(a.getRight() <= b.getX() || b.getRight() <= a.getX()
+                || a.getBottom() <= b.getY() || b.getBottom() <= a.getY(), "Library cards overlap");
+        }
+        check(screen.children().stream().noneMatch(child -> child instanceof Button button
+            && Set.of("下载", "放置投影").contains(button.getMessage().getString())),
+            "Library actions still occupy the catalogue");
+      });
+      context.waitFor(mc -> previewRequests.get() > 0, 200);
+      context.waitTicks(10);
+      check(downloads.get() == 0, "Browsing previews downloaded original schematics");
       context.takeScreenshot("tongcraft-library-local-ui");
+      context.clickScreenButton("复制网页上传链接");
+      context.runOnClient(mc -> check(((LibraryScreen) mc.gui.screen()).displayStatus()
+          .contains("请先进入游戏服务器并登录"), "Library login feedback is invisible"));
+      context.clickScreenButton("素材库测试石块");
+      context.takeScreenshot("tongcraft-library-detail-ui");
       context.clickScreenButton("放置投影");
       context.waitForScreen(FormScreen.class);
       BlockPos origin = context.computeOnClient(mc -> mc.player.blockPosition().offset(6, 2, 0));
@@ -276,7 +318,8 @@ public final class SyncGameTest implements FabricClientGameTest {
       });
       corrupt.set(true);
       context.waitFor(mc -> mc.gui.screen() instanceof LibraryScreen screen && screen.children().stream()
-          .anyMatch(child -> child instanceof Button button && button.getMessage().getString().equals("放置投影")), 200);
+          .anyMatch(child -> child instanceof Button button && button.getMessage().getString().equals("素材库测试石块")), 200);
+      context.clickScreenButton("素材库测试石块");
       context.clickScreenButton("放置投影");
       context.waitFor(mc -> mc.gui.screen() instanceof LibraryScreen screen && screen.children().stream()
           .anyMatch(child -> child instanceof Button button && button.active && button.getMessage().getString().equals("放置投影")), 200);
@@ -290,10 +333,14 @@ public final class SyncGameTest implements FabricClientGameTest {
       release.countDown();
       context.waitTicks(20);
       context.runOnClient(mc -> {
-        check(mc.gui.screen() == null, "Late download reopened the placement form");
+        check(mc.gui.screen() instanceof LibraryScreen screen && screen.children().stream()
+            .anyMatch(child -> child instanceof Button button && button.getMessage().getString().equals("素材库测试石块")),
+            "Returning from details lost the catalogue or late download opened a form");
         check(DataManager.getSchematicPlacementManager().getAllSchematicsPlacements().isEmpty(),
             "Late download created a projection after closing");
       });
+      context.clickScreenButton("返回");
+      context.runOnClient(mc -> check(mc.gui.screen() == null, "Library did not close"));
       check(!uploaded.get(), "Local placement uploaded or shared the schematic");
     } finally {
       release.countDown();
