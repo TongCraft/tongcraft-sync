@@ -1,8 +1,8 @@
 # TongCraft Sync
 
-[![CI](https://github.com/TongCraft/tongcraft-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/TongCraft/tongcraft-sync/actions/workflows/ci.yml)
+[![CI](https://github.com/TongCraft/tongcraft-sync/actions/workflows/ci.yml/badge.svg?branch=minecraft-26.3)](https://github.com/TongCraft/tongcraft-sync/actions/workflows/ci.yml)
 
-Minecraft Java **26.2** 的游戏内投影协作模组与独立同步服务。客户端连接 Carpet 游戏服务器的同时，通过 HTTPS / WebSocket 连接同步服务。**游戏服务器无需安装本项目的模组或插件。**
+Minecraft Java **26.3** 的游戏内投影协作模组与独立同步服务。本分支的预发布 tag 为 `pre-v0.1.15`，26.2 正式版保留在 `main` 分支。客户端连接 Carpet 游戏服务器的同时，通过 HTTPS / WebSocket 连接同步服务。**游戏服务器无需安装本项目的模组或插件。**
 
 ## 功能
 
@@ -17,24 +17,24 @@ Minecraft Java **26.2** 的游戏内投影协作模组与独立同步服务。�
 - 统一管理 Litematica 当前世界中的本地放置和服务端共享投影，显示同步状态；支持撤回共享并保留本地，或撤回后删除投影，保留蓝图文件。
 - 在“素材库”中以自适应多列卡片浏览公开 `.litematic` 与已保存的渲染图，点击卡片进入详情后下载或放置。放置会自动校验下载、填写位置并选中本地投影；已加入的成员可复制五分钟有效、单次使用的网页上传链接。网页上传时生成并保存渲染图，模组直接读取图片并在本地磁盘缓存，旧素材没有图片时显示占位提示。
 
-投影是 **Litematica 的正常 `SchematicPlacement`**，打印机能够读取其蓝图。已用 Litematica Printer **26.2-3.2.2** 在真实客户端的测试世界中验证：同步本身不修改世界方块，主动开启打印机后能放置石块，且游戏服务端接受放置。复杂方块、红石和 TongCraft 的具体 Carpet 配置仍需联调。模组不会自动开启打印机，也不会代替玩家执行方块放置。
+投影是 **Litematica 的正常 `SchematicPlacement`**，打印机能够读取其蓝图。已用 Java 25 与 Litematica Printer **26.3-3.2.3** 在真实客户端的测试世界中验证：同步本身不修改世界方块，主动开启打印机后能放置石块，且游戏服务端接受放置。复杂方块、红石和 TongCraft 的具体 Carpet 配置仍需联调。模组不会自动开启打印机，也不会代替玩家执行方块放置。
 
 ## 客户端安装与使用
 
-需要 Minecraft 26.2、Java 25 或更新版本，以及：
+需要 Minecraft 26.3，推荐使用已验证的 Java 25，以及：
 
 | 依赖 | 本项目编译／运行验证版本 |
 | --- | --- |
 | Fabric Loader | 0.19.5 |
-| Fabric API | 0.158.0+26.2 |
-| Litematica | 0.28.8 |
-| MaLiLib | 0.29.6 |
-| Mod Menu | 可选，用于菜单入口 |
-| Litematica Printer | 可选，已验证 26.2-3.2.2 的基础放置 |
+| Fabric API | 0.162.0+26.3 |
+| Litematica | 0.29.1 |
+| MaLiLib | 0.30.2 |
+| Mod Menu | 可选，用于菜单入口，21.0.0 |
+| Litematica Printer | 可选，26.3-3.2.3 |
 
-将 `client/build/libs/tongcraft-sync-26.2-0.1.0.jar` 和依赖放入客户端的 `mods` 目录。**不要放入游戏服务器的 mods 目录。**
+将 `client/build/libs/tongcraft-sync-26.3-0.1.15-pre.jar` 和依赖放入客户端的 `mods` 目录。**不要放入游戏服务器的 mods 目录。**
 
-推荐从 [Releases](https://github.com/TongCraft/tongcraft-sync/releases) 下载不带 `-sources` 后缀的 JAR；依赖仍需另外安装。每个 Release 附有源码 JAR 和 `SHA256SUMS.txt`。也可从仓库 [Actions](https://github.com/TongCraft/tongcraft-sync/actions/workflows/ci.yml) 中成功的 CI 运行下载 `tongcraft-sync-client` 构建产物。
+推荐从 [pre-v0.1.15](https://github.com/TongCraft/tongcraft-sync/releases/tag/pre-v0.1.15) 下载不带 `-sources` 后缀的 JAR；依赖仍需另外安装。每个 Release 附有源码 JAR 和 `SHA256SUMS.txt`。也可从仓库 [Actions](https://github.com/TongCraft/tongcraft-sync/actions/workflows/ci.yml) 中成功的 CI 运行下载 `tongcraft-sync-client` 构建产物。
 
 1. 按 **H** 打开投影管理（可以在 Minecraft 按键设置中修改），或从 Mod Menu 打开。
 2. 打开“连接设置”，填写同步服务地址，例如 `https://sync.example.com`。游戏服务器地址默认是 `mc.tongcraft.cn`，如果使用其他连接地址，可以在此修改。游戏地址用于选择共享空间，不是身份或在线状态的证明。
@@ -42,7 +42,7 @@ Minecraft Java **26.2** 的游戏内投影协作模组与独立同步服务。�
 4. “导入蓝图”打开文件选择器，填写名称、原点、旋转和镜像后仅放置本地投影，自动选中并保存，不上传、不共享，也不需要登录同步服务。导入后可在 Litematica 中继续调整；完成后点击列表中的投影名称，在菜单中点击“发布此投影”并确认发布，才上传蓝图并将最终放置设置同步给其他成员。
 5. 放置后的本地投影立即显示在管理列表，标为“未同步 · 本地”。发布后与对应共享投影合并为一行，显示“已同步”；本地调整但尚未提交时显示“有本地修改”，断开连接时显示“已发布 · 未连接”，操作过程中显示发布或撤回状态。主列表仅显示投影名称、状态和位置，按可用高度分页。点击名称打开操作菜单，集中进行选中、显示切换、编辑、发布和撤回删除；“选中并返回游戏”设置 Litematica 当前选中对象，之后可自行调整或操作打印机。本地显示开关保存在 Litematica，共享投影的隐藏和个人别名只影响本人。
 6. 修改子区域时，在名称菜单中选中共享投影，在 Litematica 中解锁并调整，再点击该投影名称，使用“同步此投影的修改”。此操作自动选中点击的投影，包含坐标、旋转、镜像和子区域设置。普通本地调整不会自动广播；服务端接受后才更新其他成员。
-7. 素材库每份蓝图旁都有“下载”和“放置投影”。放置默认使用玩家当前位置，可修改名称、原点、旋转和镜像；确认后返回游戏，投影自动选中并保存在 Litematica 的本地放置列表。它不会自动共享，也不需要登录同步服务；需要共享时点击管理列表中的名称，再使用“发布此投影”。
+7. 素材库以多列卡片展示素材和保存的渲染图；点击卡片后，在详情页下载或放置投影。放置默认使用玩家当前位置，可修改名称、原点、旋转和镜像；确认后返回游戏，投影自动选中并保存在 Litematica 的本地放置列表。它不会自动共享，也不需要登录同步服务；需要共享时点击管理列表中的名称，再使用“发布此投影”。
 8. 点击已同步投影名称打开操作菜单后，“取消同步（保留本地）”从所有成员的共享列表撤回，但自己保留可保存、可调整的本地投影；“取消同步并删除”还会删除本地放置。未同步投影可直接“删除本地投影”。删除本地放置需要输入 `DELETE` 确认，`.litematic` 文件始终保留。共享撤回沿用创建者／管理员权限和版本校验，服务端拒绝时不删除本地投影。
 9. 已关联的本地投影在名称菜单中点击“同步此投影的修改”会更新原共享实例，不创建重复投影，公共名称保持不变。同步关联按服务地址、游戏地址和 Litematica 放置 UUID 保存，重启后恢复。旧版创建的本地／共享副本只在本人发布、放置设置与蓝图内容都一致且匹配唯一时自动关联。
 
@@ -154,4 +154,4 @@ README 的 Release 徽章展示已发布的最高版本，不展示 CI 编号或
 - 没有实现蓝图垃圾回收；删除放置后文件仍保留，管理员应监控同步服务磁盘空间。
 - 正式上线前需要两个正版客户端验证：注册、发布、同步位置／子区域、个人隐藏与别名隔离、退出重进、切换维度、服务重启、成员停用，以及具体打印机的生存建造行为。
 
-参考依赖：[Litematica](https://github.com/sakura-ryoko/litematica/tree/LTS/26.2)、[Fabric 文档](https://docs.fabricmc.net/develop/)、[Litematica Printer](https://github.com/aria1th/litematica-printer)。
+参考依赖：[Litematica 0.29.1](https://modrinth.com/mod/litematica/version/ZqV316KY)、[Fabric 文档](https://docs.fabricmc.net/develop/)、[Litematica Printer](https://github.com/aria1th/litematica-printer)。

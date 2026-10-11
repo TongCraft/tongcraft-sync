@@ -9,10 +9,33 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.PointerBuffer;
-import org.lwjgl.util.tinyfd.TinyFileDialogs;
+import org.lwjgl.sdl.SDLDialog;
+import org.lwjgl.sdl.SDLError;
+import org.lwjgl.sdl.SDL_DialogFileCallback;
+import org.lwjgl.system.MemoryUtil;
 
 public final class SyncScreen extends Screen {
+  private static volatile SyncScreen importing;
+  // SDL invokes this asynchronously; retain one callback for the lifetime of the mod.
+  private static final SDL_DialogFileCallback IMPORT_CALLBACK = SDL_DialogFileCallback.create(
+      (userdata, files, filter) -> {
+        SyncScreen owner = importing;
+        if (owner == null) return;
+        String error = files == 0 ? SDLError.SDL_GetError() : null;
+        long first = files == 0 ? 0 : MemoryUtil.memGetAddress(files);
+        String chosen = first == 0 ? null : MemoryUtil.memUTF8(first);
+        owner.minecraft.execute(() -> {
+          if (importing != owner) return;
+          importing = null;
+          if (owner.minecraft.gui.screen() != owner
+              || owner.minecraft.player == null || owner.minecraft.level == null) return;
+          if (error != null) owner.sync.message("无法打开文件选择器：" + error);
+          else if (chosen != null) {
+            try { owner.importSchematic(Path.of(chosen)); }
+            catch (Exception failure) { owner.sync.message(failure.getMessage()); }
+          }
+        });
+      });
   private final Screen parent;
   private final SyncClient sync = TongCraftClient.SYNC;
   private JsonObject seen;
@@ -261,18 +284,16 @@ public final class SyncScreen extends Screen {
   private void importSchematic() {
     if (minecraft.player == null || minecraft.level == null)
       throw new IllegalArgumentException("请先进入世界再导入蓝图");
-    String chosen =
-        TinyFileDialogs.tinyfd_openFileDialog(
-            "选择 .litematic 蓝图",
-            net.fabricmc.loader.api.FabricLoader.getInstance()
-                .getGameDir()
-                .resolve("schematics")
-                .toString(),
-            (PointerBuffer) null,
-            null,
-            false);
-    if (chosen == null) return;
-    importSchematic(Path.of(chosen));
+    if (importing != null) return;
+    importing = this;
+    try {
+      SDLDialog.SDL_ShowOpenFileDialog(
+          IMPORT_CALLBACK, 0, minecraft.getWindow().handle(), null,
+          net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir().resolve("schematics").toString(), false);
+    } catch (RuntimeException | Error failure) {
+      importing = null;
+      throw failure;
+    }
   }
 
   void importSchematic(Path file) {

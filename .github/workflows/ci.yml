@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, minecraft-26.3]
   pull_request:
   workflow_dispatch:
     inputs:
@@ -14,9 +14,6 @@ on:
 permissions:
   contents: read
 
-env:
-  MOD_VERSION: 0.1.${{ github.run_number }}
-
 jobs:
   policy:
     name: Determine release policy
@@ -24,6 +21,10 @@ jobs:
     timeout-minutes: 5
     outputs:
       publish: ${{ steps.decision.outputs.publish }}
+      version: ${{ steps.decision.outputs.version }}
+      tag: ${{ steps.decision.outputs.tag }}
+      prerelease: ${{ steps.decision.outputs.prerelease }}
+      minecraft: ${{ steps.decision.outputs.minecraft }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -40,8 +41,11 @@ jobs:
 
   client:
     name: Build Minecraft client
+    needs: policy
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      MOD_VERSION: ${{ needs.policy.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -115,7 +119,7 @@ jobs:
 
   deploy-sync:
     name: Deploy Cloudflare Sync service
-    if: github.event_name == 'push' && vars.SYNC_DEPLOY_ENABLED == 'true'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.SYNC_DEPLOY_ENABLED == 'true'
     needs: [service, cloudflare]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -146,6 +150,9 @@ jobs:
     needs: [policy, client, service, cloudflare]
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    concurrency:
+      group: tongcraft-release-${{ github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:
@@ -162,10 +169,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           COMMIT: ${{ github.sha }}
+          MOD_VERSION: ${{ needs.policy.outputs.version }}
+          RELEASE_TAG: ${{ needs.policy.outputs.tag }}
+          MINECRAFT_VERSION: ${{ needs.policy.outputs.minecraft }}
+          PRERELEASE: ${{ needs.policy.outputs.prerelease }}
         run: |
-          tag="v$MOD_VERSION"
+          tag="$RELEASE_TAG"
+          release_args=(--latest)
+          if [ "$PRERELEASE" = 'true' ]; then
+            release_args=(--prerelease --latest=false)
+          fi
           cat > release-notes.md <<EOF
-          适用于 Minecraft Java 26.2 的 TongCraft Sync 自动构建。
+          适用于 Minecraft Java $MINECRAFT_VERSION 的 TongCraft Sync 自动构建。
 
           安装时下载不带 “-sources” 后缀的 JAR，放入客户端 mods 目录。
           需要 Fabric Loader、Fabric API、Litematica 和 MaLiLib；游戏服务器无需安装。
@@ -181,6 +196,6 @@ jobs:
             gh release upload "$tag" release-assets/* --clobber
           else
             gh release create "$tag" release-assets/* --target "$COMMIT" \
-              --title "TongCraft Sync $tag（Minecraft 26.2）" \
-              --notes-file release-notes.md --generate-notes
+              --title "TongCraft Sync $tag（Minecraft $MINECRAFT_VERSION）" \
+              --notes-file release-notes.md --generate-notes "${release_args[@]}"
           fi

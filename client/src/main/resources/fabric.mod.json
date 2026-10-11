@@ -10,5 +10,5 @@
     "client": ["org.tongcraft.sync.TongCraftClient"],
     "modmenu": ["org.tongcraft.sync.ModMenuIntegration"]
   },
-  "depends": { "fabricloader": ">=0.19.5", "minecraft": "26.2", "java": ">=25", "fabric-api": "*", "litematica": ">=0.28.8", "malilib": ">=0.29.6" }
+  "depends": { "fabricloader": ">=0.19.5", "minecraft": "26.3", "java": ">=25", "fabric-api": "*", "litematica": ">=0.29.1", "malilib": ">=0.30.2" }
 }

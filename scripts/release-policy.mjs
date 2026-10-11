@@ -6,6 +6,17 @@ import { pathToFileURL } from "node:url";
 const distributable =
   /^(?:client\/(?:src\/main\/|build\.gradle$)|service\/(?:src\/|package(?:-lock)?\.json$|Dockerfile$)|gradle\/|gradle\.properties$|settings\.gradle$|gradlew(?:\.bat)?$|compose\.yaml$|deploy\/|(?:build-client|start-sync-local)\.ps1$|LICENSE$)/;
 
+const prereleaseRef = "refs/heads/minecraft-26.3";
+
+export function releaseTarget(ref, runNumber) {
+  if (ref === prereleaseRef)
+    return { version: "0.1.15-pre", tag: "pre-v0.1.15", prerelease: true };
+  if (!/^\d+$/.test(String(runNumber)))
+    throw new Error("A numeric workflow run number is required.");
+  const version = `0.1.${runNumber}`;
+  return { version, tag: `v${version}`, prerelease: false };
+}
+
 export function releasePolicy({
   eventName,
   ref,
@@ -13,8 +24,8 @@ export function releasePolicy({
   commitMessage = "",
   changedPaths = [],
 }) {
-  if (ref !== "refs/heads/main")
-    return { publish: false, reason: "Only main can publish." };
+  if (ref !== "refs/heads/main" && ref !== prereleaseRef)
+    return { publish: false, reason: "Only release branches can publish." };
   if (eventName === "workflow_dispatch") {
     return {
       publish: publish === true || publish === "true",
@@ -56,7 +67,17 @@ function run() {
     commitMessage: event.head_commit?.message,
     changedPaths,
   });
-  appendFileSync(process.env.GITHUB_OUTPUT, `publish=${result.publish}\n`);
+  const target = releaseTarget(
+    process.env.GITHUB_REF,
+    process.env.GITHUB_RUN_NUMBER,
+  );
+  const minecraft = JSON.parse(
+    readFileSync("client/src/main/resources/fabric.mod.json", "utf8"),
+  ).depends.minecraft;
+  appendFileSync(
+    process.env.GITHUB_OUTPUT,
+    `publish=${result.publish}\nversion=${target.version}\ntag=${target.tag}\nprerelease=${target.prerelease}\nminecraft=${minecraft}\n`,
+  );
   console.log(
     `Release: ${result.publish ? "publish" : "skip"} — ${result.reason}`,
   );

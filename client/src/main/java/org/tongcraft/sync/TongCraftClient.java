@@ -18,7 +18,7 @@ public final class TongCraftClient implements ClientModInitializer {
         KeyMappingHelper.registerKeyMapping(
             new KeyMapping(
                 "key.tongcraft_sync.open",
-                InputConstants.Type.KEYSYM,
+                InputConstants.Type.KEYBOARD,
                 InputConstants.KEY_H,
                 KeyMapping.Category.register(
                     Identifier.fromNamespaceAndPath("tongcraft_sync", "main"))));
