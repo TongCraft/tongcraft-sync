@@ -1049,6 +1049,8 @@ public final class SyncGameTest implements FabricClientGameTest {
             TongCraftClient.SYNC.bridge().clear();
             TongCraftClient.SYNC.disconnect();
           });
+      String checkRun = System.getenv("TONGCRAFT_CHECK_RUN");
+      if (checkRun != null) System.out.println("TONGCRAFT_SYNC_GAME_TEST_PASS " + checkRun);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

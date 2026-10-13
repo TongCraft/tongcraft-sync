@@ -16,7 +16,20 @@ npm run dev
 
 测试使用 Cloudflare 的本地 Worker、SQLite Durable Object 和 R2 模拟器；正版认证测试会在测试对象内注入已验证会话，线上代码仍调用 Mojang `hasJoined`。正式上线后还要用两个正版客户端完成联调。
 
+`dev`、`check` 和 Vitest 使用独立的 `wrangler.local.jsonc`，包含测试管理员和本地模拟 bucket，不需要 CF 登录或已有远程资源。素材库链接为 `https://library.invalid` 测试占位地址。日常本地启动仍需真实账号才能走生产登录流程，自动测试在测试对象内模拟认证。
+
+仓库根目录可运行 `node scripts/doctor.mjs --profile cloudflare` 和 `node scripts/check.mjs --profile cloudflare`，统一收集诊断、测试及 dry-run 打包结果。详细说明见 [本地检查指南](../docs/LOCAL_CHECKS.md)。
+
 ## 部署
+
+以下原有配置面向维护者的站点。自建服务请复制 `wrangler.deploy.example.jsonc` 为被忽略的 `wrangler.deploy.jsonc`，填写自己的 account_id、管理员 UUID、bucket 和素材库地址；在自己的账号创建 bucket、登录 Wrangler，再显式指定个人配置。可以先使用 workers.dev 地址，无需拥有维护者的域名：
+
+```sh
+# 从仓库根目录执行只读部署诊断
+node scripts/doctor.mjs --profile deploy --config cloudflare/wrangler.deploy.jsonc
+# 从 cloudflare 目录执行自己的部署
+npx wrangler deploy --config wrangler.deploy.jsonc
+```
 
 Cloudflare 账号中先创建 `tongcraft-schematics` R2 bucket，并激活 `weiuou.top` zone。然后用 Wrangler 登录并运行：
 

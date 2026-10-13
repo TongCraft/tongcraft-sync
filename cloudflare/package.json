@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --config wrangler.jsonc",
+    "dev": "wrangler dev --local --config wrangler.local.jsonc",
     "deploy": "wrangler deploy --config wrangler.jsonc",
-    "check": "wrangler deploy --dry-run --config wrangler.jsonc",
+    "check": "wrangler deploy --dry-run --config wrangler.local.jsonc",
     "test": "vitest run"
   },
   "devDependencies": {

@@ -12,3 +12,7 @@ client/run/
 !.env.example
 *.log
 dist/
+.checks/
+cloudflare/wrangler.deploy.jsonc
+**/.dev.vars
+**/.dev.vars.*

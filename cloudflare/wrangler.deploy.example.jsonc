@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "my-tongcraft-sync",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-08",
+  "account_id": "REPLACE_WITH_YOUR_CLOUDFLARE_ACCOUNT_ID",
+  "workers_dev": true,
+  "vars": {
+    "ADMIN_UUID": "REPLACE_WITH_YOUR_MINECRAFT_UUID",
+    "LIBRARY_URL": "https://YOUR_LIBRARY_HOST"
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "ROOM", "class_name": "SyncRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SyncRoom"] }],
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "my-tongcraft-sync" }]
+}

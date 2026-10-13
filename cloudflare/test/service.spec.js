@@ -5,10 +5,10 @@ import { createHash } from "node:crypto";
 import { gzipSync } from "node:zlib";
 import { expect, test } from "vitest";
 
-const admin = "288772a1e4a54741ac4caa7b4ceceddd";
+const admin = "00000000000040008000000000000001";
 const alice = "00000000000040008000000000000002";
 const bob = "00000000000040008000000000000003";
-const base = "https://sync.weiuou.top";
+const base = "http://127.0.0.1:8787";
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 
 async function request(
@@ -187,7 +187,7 @@ test("Cloudflare Sync preserves invite, ticket, schematic, placement, and revoca
   });
   expect(ticket.status).toBe(200);
   const url = new URL(ticket.data.url);
-  expect(url.origin).toBe("https://library.weiuou.top");
+  expect(url.origin).toBe("https://library.invalid");
   const code = new URLSearchParams(url.hash.slice(1)).get("ticket");
   expect(
     (

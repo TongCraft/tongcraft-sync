@@ -44,6 +44,16 @@ Windows 本机测试：`./start-sync-local.ps1`，游戏内同步地址填 `http
 
 ## 开发与发布
 
+本地开发与 coding agent 贡献先看 [本地检查指南](docs/LOCAL_CHECKS.md)；仓库内的 [AGENTS.md](AGENTS.md) 按任务指派版本移植、改动审查和提交前检查三个 Skill，并提供代码入口和验收要求。Skill 位于 `.agents/skills/`，工具未自动发现时可按 AGENTS.md 链接直接读取。
+
+```sh
+node scripts/doctor.mjs --profile client
+node scripts/check.mjs --profile client
+node scripts/check.mjs --profile port
+```
+
+`client` 检查环境、构建和实际 JAR；`port` 还启动离线测试客户端。服务端检查使用 `node scripts/check.mjs --profile services`。每次结果、日志和截图保存在被忽略的 `.checks/` 目录；本地 Cloudflare 测试无需登录或部署自己的 Cloudflare。
+
 ```sh
 ./gradlew :client:build
 npm --prefix service ci

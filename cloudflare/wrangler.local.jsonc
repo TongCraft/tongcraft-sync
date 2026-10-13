@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "tongcraft-sync-local",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-08",
+  "workers_dev": false,
+  "send_metrics": false,
+  "vars": {
+    "ADMIN_UUID": "00000000000040008000000000000001",
+    "LIBRARY_URL": "https://library.invalid"
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "ROOM", "class_name": "SyncRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SyncRoom"] }],
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "tongcraft-sync-local" }]
+}
