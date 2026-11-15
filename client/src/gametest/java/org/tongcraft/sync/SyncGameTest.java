@@ -970,8 +970,14 @@ public final class SyncGameTest implements FabricClientGameTest {
       context.waitForScreen(PlacementScreen.class);
       context.takeScreenshot("tongcraft-placement-ui");
       context.clickScreenButton("返回");
-      context.clickScreenButton("成员与邀请");
+      context.clickScreenButton("成员管理");
       context.waitForScreen(AdminScreen.class);
+      context.runOnClient(mc -> {
+        var labels = mc.gui.screen().children().stream().filter(Button.class::isInstance)
+            .map(Button.class::cast).map(button -> button.getMessage().getString()).toList();
+        check(labels.contains("刷新成员"), "Member management has no refresh control");
+        check(labels.stream().noneMatch(label -> label.contains("邀请")), "Invitation controls remain visible");
+      });
       context.takeScreenshot("tongcraft-admin-ui");
       BlockPos printPos = context.computeOnClient(mc -> mc.player.blockPosition().offset(2, 0, 0));
       world

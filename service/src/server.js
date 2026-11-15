@@ -51,7 +51,6 @@ export async function createService({
   const db = new DatabaseSync(join(dataDir, "sync.sqlite"));
   db.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
     CREATE TABLE IF NOT EXISTS members(uuid TEXT PRIMARY KEY,name TEXT NOT NULL,role TEXT NOT NULL,disabled INTEGER NOT NULL DEFAULT 0);
-    CREATE TABLE IF NOT EXISTS invites(id TEXT PRIMARY KEY,hash TEXT UNIQUE NOT NULL,note TEXT NOT NULL,bound_uuid TEXT,expires INTEGER NOT NULL,used_by TEXT,revoked INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS sessions(hash TEXT PRIMARY KEY,uuid TEXT NOT NULL REFERENCES members(uuid),expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS library_tickets(hash TEXT PRIMARY KEY,uuid TEXT NOT NULL REFERENCES members(uuid),expires INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS blobs(hash TEXT PRIMARY KEY,size INTEGER NOT NULL,metadata TEXT NOT NULL,uploader TEXT NOT NULL REFERENCES members(uuid));
@@ -262,38 +261,7 @@ export async function createService({
                 409,
                 "Member quota reached",
               );
-              let role = "member";
-              if (c.uuid === admin) role = "admin";
-              else {
-                check(
-                  typeof input.invite === "string" &&
-                    input.invite.trim().length > 0,
-                  403,
-                  "Invitation required",
-                );
-                const invite = get(
-                  "SELECT * FROM invites WHERE hash=?",
-                  digest(input.invite.trim()),
-                );
-                check(
-                  invite &&
-                    !invite.revoked &&
-                    !invite.used_by &&
-                    invite.expires > clock(),
-                  403,
-                  "Invalid, expired, or used invitation",
-                );
-                check(
-                  !invite.bound_uuid || invite.bound_uuid === c.uuid,
-                  403,
-                  "Invitation belongs to another Minecraft account",
-                );
-                run(
-                  "UPDATE invites SET used_by=? WHERE id=?",
-                  c.uuid,
-                  invite.id,
-                );
-              }
+              const role = c.uuid === admin ? "admin" : "member";
               run(
                 "INSERT INTO members(uuid,name,role) VALUES(?,?,?)",
                 c.uuid,
@@ -364,51 +332,9 @@ export async function createService({
                 members: all(
                   "SELECT uuid,name,role,disabled FROM members ORDER BY name",
                 ),
-                invites: all(
-                  "SELECT id,note,bound_uuid,expires,used_by,revoked FROM invites ORDER BY expires DESC",
-                ),
               }
             : {}),
         });
-      }
-      if (req.method === "POST" && path === "/invites") {
-        requireAdmin(member);
-        const input = await body(req),
-          note = text(input.note),
-          bound = input.boundUuid ? uuid(input.boundUuid) : null;
-        const code = randomBytes(18).toString("base64url"),
-          id = randomUUID(),
-          expires = clock() + 48 * 60 * 60 * 1000;
-        run(
-          "DELETE FROM invites WHERE expires<?",
-          clock() - 7 * 24 * 60 * 60 * 1000,
-        );
-        check(
-          get("SELECT count(*) AS n FROM invites").n < 1000,
-          409,
-          "Invitation history quota reached",
-        );
-        run(
-          "INSERT INTO invites(id,hash,note,bound_uuid,expires) VALUES(?,?,?,?,?)",
-          id,
-          digest(code),
-          note,
-          bound,
-          expires,
-        );
-        notify();
-        return respond(201, { id, code, expires });
-      }
-      const invitation = path.match(/^\/invites\/([a-f0-9-]{36})$/);
-      if (req.method === "DELETE" && invitation) {
-        requireAdmin(member);
-        check(
-          run("UPDATE invites SET revoked=1 WHERE id=?", invitation[1]).changes,
-          404,
-          "Invitation not found",
-        );
-        notify();
-        return respond(200, { ok: true });
       }
       const memberPath = path.match(/^\/members\/([a-f0-9]{32})$/);
       if (req.method === "PATCH" && memberPath) {

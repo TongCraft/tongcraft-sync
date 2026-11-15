@@ -98,7 +98,7 @@ const placement = (schematicHash) => ({
   ],
 });
 
-test("Cloudflare Sync preserves invite, ticket, schematic, placement, and revocation behavior", async () => {
+test("Cloudflare Sync preserves open registration, ticket, schematic, placement, and revocation behavior", async () => {
   expect((await request("/health")).data).toEqual({ ok: true, protocol: 1 });
   expect((await request("/state")).status).toBe(401);
   const challenge = await request("/auth/challenge", {
@@ -152,13 +152,39 @@ test("Cloudflare Sync preserves invite, ticket, schematic, placement, and revoca
       );
     }
   });
-  const invite = await request("/invites", {
-    method: "POST",
-    token: ownerToken,
-    data: { note: "Welcome", boundUuid: alice },
-  });
-  expect(invite.status).toBe(201);
-  expect(invite.data.code).toMatch(/^[A-Za-z0-9_-]{24}$/);
+  expect((await request("/invites", {
+    method: "POST", token: ownerToken, data: { note: "Legacy" },
+  })).status).toBe(404);
+  expect((await request("/state", { token: ownerToken })).data).not.toHaveProperty("invites");
+  const newcomer = "00000000000040008000000000000004";
+  async function verifiedLogin() {
+    const challenge = await request("/auth/challenge", {
+      method: "POST", data: { uuid: newcomer, name: "NewPlayer" },
+    });
+    return runInDurableObject(stub, async (room) => {
+      room.verifySession = async () => ({ id: newcomer, name: "NewPlayer" });
+      try {
+        const response = await room.fetch(new Request(`${base}/auth/complete`, {
+          method: "POST", headers: { "X-Sync-Client-IP": "test" },
+          body: JSON.stringify({ challengeId: challenge.data.challengeId }),
+        }));
+        return { status: response.status, data: await response.json() };
+      } finally {
+        delete room.verifySession;
+      }
+    });
+  }
+  const registered = await verifiedLogin();
+  expect(registered.status).toBe(200);
+  expect(registered.data.member).toEqual({ uuid: newcomer, name: "NewPlayer", role: "member" });
+  expect((await request(`/members/${bob}`, {
+    method: "PATCH", token: registered.data.token, data: { disabled: true },
+  })).status).toBe(403);
+  expect((await request(`/members/${newcomer}`, {
+    method: "PATCH", token: ownerToken, data: { disabled: true },
+  })).status).toBe(200);
+  expect((await verifiedLogin()).status).toBe(403);
+  expect((await request("/state", { token: registered.data.token })).status).toBe(401);
   expect(
     (await request("/state", { token: aliceToken })).data.member.role,
   ).toBe("member");

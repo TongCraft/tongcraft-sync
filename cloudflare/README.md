@@ -1,8 +1,8 @@
 # TongCraft Sync 的 Cloudflare 部署
 
-这个版本与客户端的现有协议兼容：正版会话证明、一次性邀请、成员管理、共享放置、个人偏好、WebSocket 失效通知，以及投影素材库的一次性网页登录票据。Worker 在 `sync.weiuou.top` 提供 HTTPS；SQLite Durable Object 保存同步数据并支持 WebSocket 休眠；已有的 `tongcraft-schematics` R2 bucket 以 `sync/` 前缀保存游戏内共享蓝图。
+这个版本与客户端的现有协议兼容：正版会话证明、开放注册、成员管理、共享放置、个人偏好、WebSocket 失效通知，以及投影素材库的一次性网页登录票据。Worker 在 `sync.weiuou.top` 提供 HTTPS；SQLite Durable Object 保存同步数据并支持 WebSocket 休眠；已有的 `tongcraft-schematics` R2 bucket 以 `sync/` 前缀保存游戏内共享蓝图。
 
-初始管理员为 Minecraft `Wei_uou`（UUID `288772a1e4a54741ac4caa7b4ceceddd`）。初次在游戏内连接 `https://sync.weiuou.top` 时，管理员邀请码留空；后续成员需要管理员创建的邀请码。这里是独立的数据空间，原来 Node 服务里的成员和共享放置不会自动迁入。
+初始管理员为 Minecraft `Wei_uou`（UUID `288772a1e4a54741ac4caa7b4ceceddd`）。在游戏内连接 `https://sync.weiuou.top` 后直接点击“正版登录”。首次通过正版验证会自动注册，普通账号不会获得管理员权限；被管理员停用的 UUID 不能重新注册绕过停用。这里是独立的数据空间，原来 Node 服务里的成员和共享放置不会自动迁入。
 
 ## 本地开发
 

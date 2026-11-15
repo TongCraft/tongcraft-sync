@@ -96,17 +96,9 @@ async function fixture(t) {
       data: { challengeId: challenge.data.challengeId, invite },
     });
   }
-  async function invite(token, boundUuid) {
-    return req("/invites", {
-      method: "POST",
-      token,
-      data: { note: "Test invitation", boundUuid },
-    });
-  }
   return {
     req,
     login,
-    invite,
     base,
     sessions,
     advance: (n) => (now += n),
@@ -160,37 +152,34 @@ test("online proof must match the claimed UUID; challenges cannot be replayed", 
   assert.equal((await f.req("/state")).status, 401);
 });
 
-test("bound invites, expiration, revocation, and concurrent single-use redemption", async (t) => {
-  const f = await fixture(t),
-    owner = (await f.login(admin, "Owner")).data.token;
-  const bound = (await f.invite(owner, alice)).data;
-  assert.equal((await f.login(bob, "Bob", bound.code)).status, 403);
-  assert.equal((await f.login(alice, "Alice", bound.code)).status, 200);
-  assert.equal((await f.login(bob, "Bob", bound.code)).status, 403);
-  const revoked = (await f.invite(owner)).data;
-  await f.req(`/invites/${revoked.id}`, { method: "DELETE", token: owner });
-  assert.equal((await f.login(bob, "Bob", revoked.code)).status, 403);
-  const shared = (await f.invite(owner)).data;
-  const ids = [bob, "00000000000040008000000000000004"];
-  const results = await Promise.all(
-    ids.map((id, i) => f.login(id, `Player${i}`, shared.code)),
-  );
-  assert.deepEqual(results.map((r) => r.status).sort(), [200, 403]);
-  const exp = (await f.invite(owner)).data;
-  f.advance(49 * 60 * 60 * 1000);
-  assert.equal(
-    (await f.login("00000000000040008000000000000005", "Late", exp.code))
-      .status,
-    403,
-  );
+test("verified accounts register without invitations and retain member permissions", async (t) => {
+  const f = await fixture(t);
+  const results = await Promise.all([f.login(alice, "Alice"), f.login(bob, "Bob")]);
+  for (const result of results) {
+    assert.equal(result.status, 200);
+    assert.equal(result.data.member.role, "member");
+    assert.equal((await f.req("/state", { token: result.data.token })).status, 200);
+  }
+  const renamed = await f.login(alice, "AliceNew", "ignored-legacy-invite");
+  assert.equal(renamed.status, 200);
+  assert.equal(renamed.data.member.name, "AliceNew");
+  assert.equal((await f.req(`/members/${bob}`, {
+    method: "PATCH", token: renamed.data.token, data: { disabled: true },
+  })).status, 403);
+  const owner = (await f.login(admin, "Owner")).data.token;
+  const state = await f.req("/state", { token: owner });
+  assert.equal(state.data.members.length, 3);
+  assert.equal("invites" in state.data, false);
+  assert.equal((await f.req("/invites", { method: "POST", token: owner, data: {} })).status, 404);
+  await f.req(`/members/${alice}`, { method: "PATCH", token: owner, data: { disabled: true } });
+  assert.equal((await f.login(alice, "AliceNew")).status, 403);
 });
 
 test("library login tickets are member scoped, one use, and expire", async (t) => {
   const f = await fixture(t);
   const owner = (await f.login(admin, "Owner")).data.token;
   assert.equal((await f.req("/library/ticket", { method: "POST" })).status, 401);
-  const invite = (await f.invite(owner)).data.code;
-  const aliceToken = (await f.login(alice, "Alice", invite)).data.token;
+  const aliceToken = (await f.login(alice, "Alice")).data.token;
   const issued = await f.req("/library/ticket", { method: "POST", token: aliceToken });
   assert.equal(issued.status, 200);
   const url = new URL(issued.data.url);
@@ -215,9 +204,9 @@ test("library login tickets are member scoped, one use, and expire", async (t) =
 test("shared placements, private aliases, owner authorization, optimistic conflicts and cached download", async (t) => {
   const f = await fixture(t),
     owner = (await f.login(admin, "Owner")).data.token;
-  const a = (await f.login(alice, "Alice", (await f.invite(owner)).data.code))
+  const a = (await f.login(alice, "Alice"))
     .data.token;
-  const b = (await f.login(bob, "Bob", (await f.invite(owner)).data.code)).data
+  const b = (await f.login(bob, "Bob")).data
     .token;
   const upload = await f.req("/schematics", {
     method: "POST",
@@ -292,7 +281,7 @@ test("shared placements, private aliases, owner authorization, optimistic confli
 test("websocket authorization, update notifications, and immediate membership revocation", async (t) => {
   const f = await fixture(t),
     owner = (await f.login(admin, "Owner")).data.token;
-  const a = (await f.login(alice, "Alice", (await f.invite(owner)).data.code))
+  const a = (await f.login(alice, "Alice"))
     .data.token;
   const ws = new WebSocket(f.base.replace("http", "ws") + "/events", {
     headers: { Authorization: `Bearer ${a}` },
@@ -334,9 +323,9 @@ test("valid bounded NBT is accepted and malformed schematics are rejected", () =
 test("deduplicated uploads grant both uploaders access without exposing unpublished blobs", async (t) => {
   const f = await fixture(t),
     owner = (await f.login(admin, "Owner")).data.token;
-  const a = (await f.login(alice, "Alice", (await f.invite(owner)).data.code))
+  const a = (await f.login(alice, "Alice"))
     .data.token;
-  const b = (await f.login(bob, "Bob", (await f.invite(owner)).data.code)).data
+  const b = (await f.login(bob, "Bob")).data
     .token;
   const hash = (
     await f.req("/schematics", { method: "POST", token: a, raw: nbt() })

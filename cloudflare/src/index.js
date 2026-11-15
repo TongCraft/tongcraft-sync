@@ -52,7 +52,6 @@ export class SyncRoom extends DurableObject {
     this.sql = ctx.storage.sql;
     this.sql.exec(`
       CREATE TABLE IF NOT EXISTS members(uuid TEXT PRIMARY KEY,name TEXT NOT NULL,role TEXT NOT NULL,disabled INTEGER NOT NULL DEFAULT 0);
-      CREATE TABLE IF NOT EXISTS invites(id TEXT PRIMARY KEY,hash TEXT UNIQUE NOT NULL,note TEXT NOT NULL,bound_uuid TEXT,expires INTEGER NOT NULL,used_by TEXT,revoked INTEGER NOT NULL DEFAULT 0);
       CREATE TABLE IF NOT EXISTS sessions(hash TEXT PRIMARY KEY,uuid TEXT NOT NULL REFERENCES members(uuid),expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS library_tickets(hash TEXT PRIMARY KEY,uuid TEXT NOT NULL REFERENCES members(uuid),expires INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS challenges(id TEXT PRIMARY KEY,uuid TEXT NOT NULL,name TEXT NOT NULL,server_id TEXT NOT NULL,expires INTEGER NOT NULL,busy INTEGER NOT NULL DEFAULT 0);
@@ -407,37 +406,7 @@ export class SyncRoom extends DurableObject {
               409,
               "Member quota reached",
             );
-            let role = "member";
-            if (c.uuid === uuid(this.env.ADMIN_UUID)) role = "admin";
-            else {
-              check(
-                typeof input.invite === "string" && input.invite.trim(),
-                403,
-                "Invitation required",
-              );
-              const invite = this.get(
-                "SELECT * FROM invites WHERE hash=?",
-                digest(input.invite.trim()),
-              );
-              check(
-                invite &&
-                  !invite.revoked &&
-                  !invite.used_by &&
-                  invite.expires > Date.now(),
-                403,
-                "Invalid, expired, or used invitation",
-              );
-              check(
-                !invite.bound_uuid || invite.bound_uuid === c.uuid,
-                403,
-                "Invitation belongs to another Minecraft account",
-              );
-              this.run(
-                "UPDATE invites SET used_by=? WHERE id=?",
-                c.uuid,
-                invite.id,
-              );
-            }
+            const role = c.uuid === uuid(this.env.ADMIN_UUID) ? "admin" : "member";
             this.run(
               "INSERT INTO members(uuid,name,role) VALUES(?,?,?)",
               c.uuid,
@@ -502,51 +471,9 @@ export class SyncRoom extends DurableObject {
               members: this.all(
                 "SELECT uuid,name,role,disabled FROM members ORDER BY name",
               ),
-              invites: this.all(
-                "SELECT id,note,bound_uuid,expires,used_by,revoked FROM invites ORDER BY expires DESC",
-              ),
             }
           : {}),
       });
-    }
-    if (method === "POST" && path === "/invites") {
-      check(member.role === "admin", 403, "Administrator permission required");
-      const input = await this.body(request),
-        note = text(input.note),
-        bound = input.boundUuid ? uuid(input.boundUuid) : null;
-      const code = randomBytes(18).toString("base64url"),
-        id = randomUUID(),
-        expires = Date.now() + 48 * 60 * 60 * 1000;
-      this.run(
-        "DELETE FROM invites WHERE expires<?",
-        Date.now() - 7 * 24 * 60 * 60 * 1000,
-      );
-      check(
-        this.get("SELECT count(*) AS n FROM invites").n < 1000,
-        409,
-        "Invitation history quota reached",
-      );
-      this.run(
-        "INSERT INTO invites(id,hash,note,bound_uuid,expires) VALUES(?,?,?,?,?)",
-        id,
-        digest(code),
-        note,
-        bound,
-        expires,
-      );
-      this.notify();
-      return json(201, { id, code, expires });
-    }
-    const invitation = path.match(/^\/invites\/([a-f0-9-]{36})$/);
-    if (method === "DELETE" && invitation) {
-      check(member.role === "admin", 403, "Administrator permission required");
-      check(
-        this.run("UPDATE invites SET revoked=1 WHERE id=?", invitation[1]),
-        404,
-        "Invitation not found",
-      );
-      this.notify();
-      return json(200, { ok: true });
     }
     const memberPath = path.match(/^\/members\/([a-f0-9]{32})$/);
     if (method === "PATCH" && memberPath) {

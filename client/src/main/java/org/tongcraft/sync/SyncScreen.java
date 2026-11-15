@@ -55,7 +55,7 @@ public final class SyncScreen extends Screen {
     seenSelection = sync.bridge().selectedKey();
     int x = 12, w = width - 24, quarter = (w - 12) / 4;
     button("连接设置", x, 24, quarter, this::settings);
-    button("邀请码 / 登录", x + quarter + 4, 24, quarter, this::signIn);
+    button("正版登录", x + quarter + 4, 24, quarter, sync::connect);
     button("刷新", x + 2 * (quarter + 4), 24, quarter, sync::refresh);
     button("关闭", x + 3 * (quarter + 4), 24, quarter, this::onClose);
     search = new EditBox(font, x, 46, w - 100, 18, Component.literal("搜索投影"));
@@ -108,7 +108,7 @@ public final class SyncScreen extends Screen {
     button("素材库", x + actionWidth + 4, height - 37, actionWidth,
         () -> minecraft.gui.setScreen(new LibraryScreen(this)));
     if (sync.admin())
-      button("成员与邀请", x + 2 * (actionWidth + 4), height - 37, actionWidth,
+      button("成员管理", x + 2 * (actionWidth + 4), height - 37, actionWidth,
           () -> minecraft.gui.setScreen(new AdminScreen(this)));
   }
 
@@ -196,15 +196,6 @@ public final class SyncScreen extends Screen {
             throw new IllegalArgumentException(e.getMessage());
           }
         });
-  }
-
-  private void signIn() {
-    form(
-        "正版账号登录",
-        "首次加入填写邀请码；已加入成员和初始管理员可留空",
-        "验证并连接",
-        List.of(field("invite", "一次性邀请码", "", 128)),
-        values -> sync.connect(values.get("invite")));
   }
 
   private void details(JsonObject p) {

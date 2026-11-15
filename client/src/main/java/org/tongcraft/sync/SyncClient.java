@@ -47,7 +47,7 @@ public final class SyncClient {
   private volatile ClientConfig config = ClientConfig.load();
   private JsonObject state = new JsonObject();
   private String status = "尚未连接", activeAddress = "";
-  private boolean connecting, needsInvitation;
+  private boolean connecting, accessDenied;
   private long nextRetry, nextPoll;
   private int failures;
 
@@ -64,7 +64,7 @@ public final class SyncClient {
   }
 
   public boolean authenticated() {
-    return !token.isEmpty() && !needsInvitation;
+    return !token.isEmpty() && !accessDenied;
   }
 
   public boolean admin() {
@@ -150,7 +150,7 @@ public final class SyncClient {
     disconnect();
     config = value;
     activeAddress = "";
-    needsInvitation = false;
+    accessDenied = false;
     nextRetry = 0;
     status = "设置已保存；进入对应服务器后自动同步";
   }
@@ -167,16 +167,16 @@ public final class SyncClient {
     if (!current.equals(activeAddress)) {
       disconnect();
       activeAddress = current;
-      needsInvitation = false;
+      accessDenied = false;
       nextRetry = 0;
       failures = 0;
       loadCached();
     }
     long now = System.currentTimeMillis();
     if (!connecting
-        && !needsInvitation
+        && !accessDenied
         && (token.isEmpty() || expires <= now + 60000)
-        && now >= nextRetry) connect("");
+        && now >= nextRetry) connect();
     if (authenticated() && now >= nextPoll) {
       nextPoll = now + 30000;
       refresh();
@@ -235,7 +235,7 @@ public final class SyncClient {
         });
   }
 
-  public void connect(String invite) {
+  public void connect() {
     if (!targetServer()) {
       status = "请先进入设置中指定的 TongCraft 游戏服务器";
       return;
@@ -252,7 +252,7 @@ public final class SyncClient {
     if (previous != null) previous.abort();
     token = "";
     connecting = true;
-    needsInvitation = false;
+    accessDenied = false;
     status = "正在验证正版账号…";
     int gen = generation;
     ClientConfig cfg = config;
@@ -281,9 +281,7 @@ public final class SyncClient {
                     "/auth/complete",
                     Wire.object(
                         "challengeId",
-                        challenge.get("challengeId").getAsString(),
-                        "invite",
-                        invite),
+                        challenge.get("challengeId").getAsString()),
                     null,
                     "");
             if (gen != generation) return;
@@ -315,7 +313,7 @@ public final class SyncClient {
               && (api.code == 401 || (authentication && api.code == 403))) {
             token = "";
             expires = 0;
-            needsInvitation = api.code == 403;
+            accessDenied = api.code == 403;
             if (api.code == 403) {
               bridge.clear();
               state = new JsonObject();
@@ -334,9 +332,6 @@ public final class SyncClient {
     String message = e.getMessage();
     if (message == null) return "网络连接失败";
     return switch (message) {
-      case "Invitation required" -> "首次加入需要邀请码";
-      case "Invalid, expired, or used invitation" -> "邀请码无效、已使用或已过期";
-      case "Invitation belongs to another Minecraft account" -> "邀请码绑定了其他正版账号";
       case "Membership disabled" -> "管理员已停用你的成员资格";
       case "Placement changed; refresh before editing" -> "投影已被更新，请刷新后再操作";
       default -> message;
@@ -507,10 +502,6 @@ public final class SyncClient {
             mc.execute(
                 () -> {
                   if (gen == generation) {
-                    if (result.has("code")) {
-                      mc.keyboardHandler.setClipboard(result.get("code").getAsString());
-                      status = "邀请码已复制到剪贴板，48 小时内单次有效";
-                    }
                     if (success != null) success.run();
                   }
                 });
